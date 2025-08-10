@@ -5,17 +5,18 @@ import matplotlib.animation as animation
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk)
 import tkinter as tk
 from tkinter import ttk
-from scipy.spatial.transform import Rotation
 import mpl_toolkits.mplot3d.art3d as art3d
 from mpl_toolkits.mplot3d import proj3d
 import matplotlib.pyplot as plt
 
 """ Global variables """
-num_points = 48
+num_points = 50
 colors = [plt.cm.gist_rainbow(i/(num_points - 1)) for i in range(num_points)]
 # colors = colors[::-1]
 plt_fibers = []
 plot_points = []
+theta_s2_deg = 90
+turn_spiral = 0.5
 
 """ Animation control """
 is_play = False
@@ -25,7 +26,7 @@ is_tilt = False
 
 """ Create figure and axes """
 title_ax0 = "Stereographic projection of S^3"
-title_ax1 = "Point on S^2"
+title_ax1 = "Points on S^2"
 title_tk = "Hopf fibration"
 
 x_min = -4.
@@ -92,6 +93,9 @@ def on_move(event):
 fig.canvas.mpl_connect('motion_notify_event', on_move)
 
 """ Global objects of Tkinter """
+var_num_points = tk.StringVar(root)
+var_theta_s2_deg = tk.StringVar(root)
+var_turn = tk.StringVar(root)
 
 """ Classes and functions """
 
@@ -157,7 +161,7 @@ def get_base_points_circle_vertical():
     return points
 
 
-def get_base_points_small_circle(num_points, center_theta=np.pi/2, center_phi=0, angle_radius=np.pi/6):
+def get_base_points_small_circle(num_points, angle_radius, center_theta=np.pi/2, center_phi=np.pi/2):
     points = []
     for i in range(num_points):
         angle = i / num_points * 2 * np.pi  # Angle around the circle
@@ -183,12 +187,12 @@ def get_base_points_circle_horizontal(theta):
     return points
 
 
-def get_base_points_spiral():
+def get_base_points_spiral(turn):
     points = []
 
     for i in range(num_points):
         th = i / num_points * np.pi
-        ph = i / num_points * np.pi * 2 * 4
+        ph = i / num_points * np.pi * 2 * turn
         points.append((th, ph))
 
     return points
@@ -271,6 +275,7 @@ def remove_hopf_fibers():
 
 
 def option_base_points_selected(event):
+    ax1.set_title(title_ax1 + " (" + str(combo_options.get()) + ")", color="white")
     global base_points
     if combo_options.get() == option_base_points[0]:
         remove_hopf_fibers()
@@ -278,13 +283,17 @@ def option_base_points_selected(event):
         plot_hopf_fibers()
     elif combo_options.get() == option_base_points[1]:
         remove_hopf_fibers()
-        base_points = get_base_points_circle_horizontal(np.pi / 2)
+        base_points = get_base_points_small_circle(num_points, np.deg2rad(theta_s2_deg))
         plot_hopf_fibers()
     elif combo_options.get() == option_base_points[2]:
         remove_hopf_fibers()
-        base_points = get_base_points_spiral()
+        base_points = get_base_points_circle_horizontal(np.deg2rad(theta_s2_deg))
         plot_hopf_fibers()
     elif combo_options.get() == option_base_points[3]:
+        remove_hopf_fibers()
+        base_points = get_base_points_spiral(turn_spiral)
+        plot_hopf_fibers()
+    elif combo_options.get() == option_base_points[4]:
         remove_hopf_fibers()
         base_points = get_base_points_fibonacci_sphere(num_points)
         plot_hopf_fibers()
@@ -292,8 +301,67 @@ def option_base_points_selected(event):
         pass
 
 
+def set_num_points(number):
+    global num_points, colors
+    num_points = number
+    colors = [plt.cm.gist_rainbow(i / (num_points - 1)) for i in range(num_points)]
+
+    remove_hopf_fibers()
+    option_base_points_selected(True)
+
+
+def set_theta_s2_deg(theta):
+    global theta_s2_deg
+    theta_s2_deg = theta
+
+    remove_hopf_fibers()
+    option_base_points_selected(True)
+
+
+def set_turn_spiral(turn):
+    global turn_spiral
+    turn_spiral = turn
+
+    remove_hopf_fibers()
+    option_base_points_selected(True)
+
+
 def create_parameter_setter():
-    pass
+    # Number of fibers
+    frm_num_fibers = ttk.Labelframe(root, relief="ridge", text="Number of fibers", labelanchor='n')
+    frm_num_fibers.pack(side="left", fill=tk.Y)
+
+    # var_num_points = tk.StringVar(root)
+    var_num_points.set(str(num_points))
+    spn_num_points = tk.Spinbox(
+        frm_num_fibers, textvariable=var_num_points, format="%.0f", from_=2, to=100, increment=1,
+        command=lambda: set_num_points(int(var_num_points.get())), width=5
+    )
+    spn_num_points.pack(side="left")
+
+    # Theta on s2
+    frm_theta_s2 = ttk.Labelframe(root, relief="ridge", text="Theta (position of circle)", labelanchor='n')
+    frm_theta_s2.pack(side="left", fill=tk.Y)
+
+    # var_theta_s2_deg = tk.StringVar(root)
+    var_theta_s2_deg.set(str(theta_s2_deg))
+    spn_theta_s2 = tk.Spinbox(
+        frm_theta_s2, textvariable=var_theta_s2_deg, format="%.0f", from_=0, to=360, increment=1,
+        command=lambda: set_theta_s2_deg(float(var_theta_s2_deg.get())), width=5
+    )
+    spn_theta_s2.pack(side="left")
+
+    # Turn of spiral on s2
+    frm_turn = ttk.Labelframe(root, relief="ridge", text="Turn of spiral", labelanchor='n')
+    frm_turn.pack(side="left", fill=tk.Y)
+
+    # var_turn = tk.StringVar(root)
+    var_turn.set(str(turn_spiral))
+    spn_turn = tk.Spinbox(
+        frm_turn, textvariable=var_turn, format="%.1f", from_=0, to=10, increment=0.5,
+        command=lambda: set_turn_spiral(float(var_turn.get())), width=5
+    )
+    spn_turn.pack(side="left")
 
 
 def create_animation_control():
@@ -354,7 +422,6 @@ if __name__ == "__main__":
     # cnt = Counter(ax=ax0, is3d=True, xy=np.array([x_min, y_max]), z=z_max, label="Step=")
     draw_static_diagrams()
     # create_animation_control()
-    create_parameter_setter()
 
     unit_sphere0 = UnitSphere(ax0, "plasma", "none", 0.3)
     unit_sphere1 = UnitSphere(ax1, "plasma", "none", 0.3)
@@ -369,13 +436,17 @@ if __name__ == "__main__":
     # Select base points
     frm_options = ttk.Labelframe(root, relief="ridge", text="Base points option", labelanchor="n")
     frm_options.pack(side="left", fill=tk.Y)
-    option_base_points = ["Vertical circle", "horizontal circle", "Spiral", "fibonacci"]
+    option_base_points = ["Vertical circle", "Vertical circle(small circle)", "horizontal circle",
+                          "Spiral", "fibonacci sphere"]
     variable_base_points_option = tk.StringVar(root)
     combo_options = ttk.Combobox(frm_options, values=option_base_points, textvariable=variable_base_points_option,
-                                 width=18)
+                                 width=24)
     combo_options.set(option_base_points[0])
     combo_options.bind("<<ComboboxSelected>>", option_base_points_selected)
     combo_options.pack()
+
+    create_parameter_setter()
+    ax1.set_title(title_ax1 + " (" + str(option_base_points[0]) + ")", color="white")
 
     anim = animation.FuncAnimation(fig, update, interval=100, save_count=100)
     root.mainloop()
