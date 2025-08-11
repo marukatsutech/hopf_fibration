@@ -20,7 +20,6 @@ turn_spiral = 0.5
 
 """ Animation control """
 is_play = False
-is_tilt = False
 
 """ Axis vectors """
 
